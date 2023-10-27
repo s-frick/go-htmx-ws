@@ -1,0 +1,10 @@
+<!-- websockets.html -->
+<script src="https://unpkg.com/htmx.org@1.9.5"></script>
+<script src="https://unpkg.com/htmx.org/dist/ext/ws.js"></script>
+<div hx-ext="ws" ws-connect="/echo">
+  <div id="notifications"></div>
+  <div id="chat_room">...</div>
+  <form id="form" ws-send>
+    <input name="chat_message" />
+  </form>
+</div>
