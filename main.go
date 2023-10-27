@@ -1,16 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"flag"
-	"io"
 	"log"
 	"net/http"
+	"text/template"
 
 	"github.com/gorilla/websocket"
 )
 
 var clients = make(map[*websocket.Conn]bool)
-var broadcaster = make(chan ChatMessage)
+var broadcaster = make(chan []byte)
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -19,7 +20,7 @@ var upgrader = websocket.Upgrader{
 
 type ChatMessage struct {
 	Username string `json:"username"`
-	Text     string `json:"text"`
+	Message  string `json:"chat_message"`
 }
 
 func handleConnections(w http.ResponseWriter, r *http.Request) {
@@ -32,12 +33,18 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		var msg ChatMessage
+		var msgHtml bytes.Buffer
 		err := ws.ReadJSON(&msg)
 		if err != nil {
 			delete(clients, ws)
 			break
 		}
-		broadcaster <- msg
+		tmpl := template.Must(template.ParseFiles("public/chat_message.html"))
+		if err := tmpl.Execute(&msgHtml, msg); err != nil {
+			log.Printf("error while render template: %v", err)
+			return
+		}
+		broadcaster <- msgHtml.Bytes()
 	}
 }
 
@@ -45,18 +52,17 @@ func handleMessages() {
 	for {
 		msg := <-broadcaster
 		for client := range clients {
-			err := client.WriteJSON(msg)
-			if err != nil && unsafeError(err) {
-				log.Printf("error: %v", err)
-				client.Close()
-				delete(clients, client)
+			w, err := client.NextWriter(websocket.TextMessage)
+			if err != nil {
+				return
+			}
+			w.Write([]byte(msg))
+
+			if err := w.Close(); err != nil {
+				return
 			}
 		}
 	}
-}
-
-func unsafeError(err error) bool {
-	return !websocket.IsCloseError(err, websocket.CloseGoingAway) && err != io.EOF
 }
 
 func main() {
