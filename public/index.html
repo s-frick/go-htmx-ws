@@ -74,5 +74,22 @@
         <button class="btn btn-primary" type="submit">Send</button>
       </form>
     </div>
+    <script>
+      const target = document.getElementById("chat");
+      const config = { childList: true };
+
+      const observer = new MutationObserver((mutationList, observer) => {
+        if (mutationList.length !== 0) {
+          const lastEl = document.querySelector(".chat li:last-child");
+          lastEl.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest",
+          });
+        }
+      });
+
+      observer.observe(target, config);
+    </script>
   </body>
 </html>
