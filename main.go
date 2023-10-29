@@ -2,21 +2,27 @@ package main
 
 import (
 	"bytes"
-	"flag"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"text/template"
 
 	"github.com/gorilla/websocket"
 )
 
-var clients = make(map[*websocket.Conn]bool)
-var broadcaster = make(chan []byte)
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
+var (
+	appRoot     = os.Getenv("APP_ROOT")
+	templateDir = os.Getenv("TEMPLATE_DIR")
+	port        = os.Getenv("PORT")
+	clients     = make(map[*websocket.Conn]bool)
+	broadcaster = make(chan []byte)
+	upgrader    = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+)
 
 type ChatMessage struct {
 	Username string `json:"username"`
@@ -39,7 +45,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			delete(clients, ws)
 			break
 		}
-		tmpl := template.Must(template.ParseFiles("public/chat_message.html"))
+		tmpl := template.Must(template.ParseFiles(fmt.Sprintf("%s/chat_message.html", templateDir)))
 		if err := tmpl.Execute(&msgHtml, msg); err != nil {
 			log.Printf("error while render template: %v", err)
 			return
@@ -66,15 +72,14 @@ func handleMessages() {
 }
 
 func main() {
-	port := flag.String("port", "8000", "Port of webserver")
-	flag.StringVar(port, "p", "8000", "Port of webserver")
-	flag.Parse()
-
-	http.Handle("/", http.FileServer(http.Dir("./public")))
+	http.Handle("/", http.FileServer(http.Dir(templateDir)))
 
 	http.HandleFunc("/websocket", handleConnections)
 	go handleMessages()
 
-	log.Println("Starting Server at port " + *port)
-	log.Fatal(http.ListenAndServe(":"+*port, nil))
+	if port == "" {
+		port = "8000"
+	}
+	log.Println("Starting Server at port " + port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
