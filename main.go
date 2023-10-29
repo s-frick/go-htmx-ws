@@ -32,7 +32,11 @@ type ChatMessage struct {
 func handleConnections(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
+		tmpl := template.Must(template.ParseFiles(fmt.Sprintf("%s/err_ws.html", templateDir)))
+		tmpl.Execute(w, nil)
+		return
+
 	}
 	defer ws.Close()
 	clients[ws] = true
